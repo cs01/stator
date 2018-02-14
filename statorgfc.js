@@ -11,6 +11,18 @@
  */
 const store = {
     /**
+     * the store's options
+     */
+    options: {
+        debounce_ms: 0,
+        debug: false,
+        immutable: true,
+        // sometimes values are extremely large and just add noise when logging
+        // if the key name is in this array and debug is true, value changes
+        // will not be logged in the console
+        keys_to_not_log_changes_in_console: [],
+    },
+    /**
      * Set the initial store. This can only be done once, and must be done before the
      * store can be modified. This should be a JavaScript object with key/value pairs.
      * This is the initial "hydration" of the store, and sets the expected types for all keys.
@@ -28,18 +40,6 @@ const store = {
           Object.assign(store.options, options)
         }
         store._store_created = true
-    },
-    /**
-     * the store's options
-     */
-    options: {
-        debounce_ms: 10,
-        debug: false,
-        immutable: false,
-        // sometimes values are extremely large and just add noise when logging
-        // if the key name is in this array and debug is true, value changes
-        // will not be logged in the console
-        keys_to_not_log_changes_in_console: [],
     },
     /**
      * connect a React component's state to keys in the global store.
@@ -63,8 +63,7 @@ const store = {
               console.warn('Overwriting existing state key ' + k)
             }
             component.state[k] = store._store[k]
-            // record that this key is being watched
-            store._keys_connected_to_store_updates[k] = true
+            store._record_key_watcher(k, component.constructor.name)
         }
 
         // call this function whenever the store changes
@@ -72,7 +71,7 @@ const store = {
             if(intersection(keys_to_watch_for_changes, changed_keys).length){
                 // only update the state if a key we care about has changed
                 let state_update_obj = {}
-                keys_to_watch_for_changes.map(k => state_update_obj[k] = store._store[k])
+                keys_to_watch_for_changes.forEach(k => state_update_obj[k] = store._store[k])
                 this.setState(state_update_obj)
 
                 // if some other custom callback is required by the component
@@ -83,7 +82,7 @@ const store = {
             }
         }
         let callback_bound_to_component = _store_change_callback.bind(component)
-        store._subscribe(callback_bound_to_component)
+        return store.subscribe(callback_bound_to_component)
     },
     /**
      * Connect a regular JavaScript function to a callback that is called ONLY
@@ -95,16 +94,39 @@ const store = {
           if(!(store._store.hasOwnProperty(k))){
             throw 'Store does not have key ' + k
           }
-          // record that this key is being watched
-          store._keys_connected_to_store_updates[k] = true
+          store._record_key_watcher(k, callback.name)
       }
+
       // call this function whenever the store changes
       function _callback(changed_keys){
           if(intersection(keys_to_watch_for_changes, changed_keys).length){
               callback(changed_keys)
           }
       }
-      store._subscribe(_callback)
+      return store.subscribe(_callback)
+    },
+    get_key_watchers(){
+      return copy_by_value(store._keys_connected_to_store_updates)
+    },
+    _record_key_watcher(key, watcher_name){
+      if(!store._keys_connected_to_store_updates.hasOwnProperty(key)){
+        store._keys_connected_to_store_updates[key] = []
+      }
+      store._keys_connected_to_store_updates[key].push(watcher_name)
+    },
+    /**
+     * Add listener(s) to store changes. Reactors are automatically subscribed to store changes.
+     * @param {function} function or array of functions to be called when event is dispatched due to store updates
+     */
+    subscribe(callback){
+        let id = store._cur_callback_id
+        store._cur_callback_id++
+
+        function unsubscribe(){
+          store._callback_objs = store._callback_objs.filter(c => c.id !== id)
+        }
+        store._callback_objs.push({id: id, callback: callback})
+        return unsubscribe
     },
     /**
      * return an array of keys that do not trigger any callbacks when changed, and therefore
@@ -140,6 +162,7 @@ const store = {
         let oldval = store._store[key]
         check_type_match(oldval, value, key)
         if (value_changed(oldval, value)){
+            // TODO add middleware calls
             store._enqueue_change(key, oldval, value)
         }
 
@@ -174,7 +197,11 @@ const store = {
         }
 
         // delay event emission and set new timeout id
-        store._debounce_timeout = setTimeout(store.publish, store.options.debounce_ms)
+        if(store.options.debounce_ms){
+          store._debounce_timeout = setTimeout(store._publish, store.options.debounce_ms)
+        }else{
+          store._publish()
+        }
     },
     /**
      * Get reference to one of the keys in the current store.
@@ -206,42 +233,17 @@ const store = {
         let ref = store._store[key]
 
         if(store.options.immutable){
-          // copy by value, and return that
-          if(Array.isArray(ref)){
-            return ref.slice()
-          }else if (is_object(ref)){
-            return Object.assign({}, store._store[key])
-          }else{
-            return ref
-          }
+          return copy_by_value(ref)
         }else{
           // return the reference
-          return store._store[key]
+          return ref
         }
-    },
-    /**
-     * Add listener(s) to store changes. Reactors are automatically subscribed to store changes.
-     * @param {function} function or array of functions to be called when event is dispatched due to store updates
-     */
-    _subscribe(callback_function){
-        if(Array.isArray(callback_function)){
-            store._callbacks = store._callbacks.concat(callback_function)
-        }else{
-            store._callbacks.push(callback_function)
-        }
-    },
-    /**
-     * Remove listener of store changes
-     * @param {function} function to stop being called when store is udpated
-     */
-    unsubscribe(callback_function){
-        store._callbacks = store._callbacks.filter(c => c !== callback_function)
     },
     /**
      * Run subscribers' callback functions. An array of the changed keys is passed to the callback function.
      * Be careful how often this is called, since re-rendering components can become expensive.
      */
-    publish: function(){
+    _publish: function(){
         const changed_keys = store._changed_keys
         if(changed_keys.length === 0){
             console.error('no keys were changed, yet we are trying to publish a store change')
@@ -252,7 +254,7 @@ const store = {
         // (if callbacks modify state, the list of keys the callback changed would be wiped out)
         store._changed_keys = []
         store._clear_debounce_timeout()
-        store._callbacks.map(c => c(changed_keys))
+        store._callback_objs.forEach(c => c.callback(changed_keys))
 
     },
     /**
@@ -262,7 +264,9 @@ const store = {
     /**
      * array of functions to be called when store changes (usually Reactor.render())
      */
-    _callbacks: [],
+    _callback_objs: [],
+    // unique id for each callback. Used when unsubscribing.
+    _cur_callback_id: 0,
     /**
      * Actual store is held here, but should NEVER be accessed directly. Only access through store.set/store.get!
      */
@@ -291,6 +295,16 @@ const store = {
 /****** helper functions ********/
 function intersection(arr1, arr2){
   return arr1.filter(i => arr2.indexOf(i) !== -1)
+}
+
+function copy_by_value(ref){
+  if(Array.isArray(ref)){
+    return ref.slice()
+  }else if (is_object(ref)){
+    return Object.assign({}, ref)
+  }else{
+    return ref
+  }
 }
 
 function is_object(ref){

@@ -1,13 +1,11 @@
 {
   "name": "statorgfc",
-  "version": "0.2.0",
+  "version": "0.1.4",
   "description": "a JavaScript library for state management of JavaScript apps, with built-in support for React Components.",
-  "main": "stator.js",
-  "directories": {
-    "example": "examples"
-  },
+  "main": "statorgfc.js",
+  "directories": {},
   "scripts": {
-    "test": "jest"
+    "test": "jest --no-cache"
   },
   "babel": {
     "presets": [
@@ -21,9 +19,9 @@
   "author": "grassfedcode@gmail.com",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/cs01/stator/issues"
+    "url": "https://github.com/cs01/statorgfc/issues"
   },
-  "homepage": "https://github.com/cs01/stator#readme",
+  "homepage": "https://github.com/cs01/statorgfc",
   "devDependencies": {
     "babel-core": "^6.26.0",
     "babel-loader": "^7.1.2",
@@ -31,12 +29,13 @@
     "jest": "^22.3.0"
   },
   "keywords": [
-    "react",
     "state",
     "store",
-    "redux",
     "stator",
+    "statorgfc",
     "javascript",
-    "statorgfc"
+    "react",
+    "webapp",
+    "redux"
   ]
 }
