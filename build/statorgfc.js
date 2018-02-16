@@ -1,11 +1,11 @@
 'use strict';
 
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; /*
+                                                                                                                                                                                                                                                                               * statorgfc - global state mangement for JavaScript apps. Copyright Chad Smith.
+                                                                                                                                                                                                                                                                               */
 
-/*
- * statorgfc - global state mangement for JavaScript apps. Copyright Chad Smith.
- *
- */
+
+var _middleware = require('./middleware');
 
 var store = {
   /**
@@ -15,8 +15,8 @@ var store = {
     debounce_ms: 0,
     debug: false,
     immutable: true,
-    // sometimes values are extremely large and just add noise when logging
-    // if the key name is in this array and debug is true, value changes
+    // Sometimes values are extremely large and just add noise when logging.
+    // If the key name is in this array and debug is true, value changes
     // will not be logged in the console
     keys_to_not_log_changes_in_console: []
   },
@@ -67,7 +67,7 @@ var store = {
           console.warn('Overwriting existing state key ' + k);
         }
         component.state[k] = store._store[k];
-        store._record_key_watcher(k, component.constructor.name);
+        store._addSubscriberToKey(k, component.constructor.name);
       }
 
       // call this function whenever the store changes
@@ -109,7 +109,7 @@ var store = {
    * Connect a regular JavaScript function to a callback that is called ONLY
    * when one of a subset of the keys has been updated
    */
-  subscribe_to_keys: function subscribe_to_keys(keys_to_watch_for_changes, callback) {
+  subscribeToKeys: function subscribeToKeys(keys_to_watch_for_changes, callback) {
     // add keys that map to the store's keys
     var _iteratorNormalCompletion2 = true;
     var _didIteratorError2 = false;
@@ -122,7 +122,7 @@ var store = {
         if (!store._store.hasOwnProperty(k)) {
           throw 'Store does not have key ' + k;
         }
-        store._record_key_watcher(k, callback.name);
+        store._addSubscriberToKey(k, callback.name);
       }
 
       // call this function whenever the store changes
@@ -148,16 +148,15 @@ var store = {
     }
     return store.subscribe(_callback);
   },
-  get_key_watchers: function get_key_watchers() {
-    return copy_by_value(store._keys_connected_to_store_updates);
+  getKeySubscribers: function getKeySubscribers() {
+    return copyByValue(store._key_to_watcher_subscriptions);
   },
-  _record_key_watcher: function _record_key_watcher(key, watcher_name) {
-    if (!store._keys_connected_to_store_updates.hasOwnProperty(key)) {
-      store._keys_connected_to_store_updates[key] = [];
+  _addSubscriberToKey: function _addSubscriberToKey(key, watcher_name) {
+    if (!store._key_to_watcher_subscriptions.hasOwnProperty(key)) {
+      store._key_to_watcher_subscriptions[key] = [];
     }
-    store._keys_connected_to_store_updates[key].push(watcher_name);
+    store._key_to_watcher_subscriptions[key].push(watcher_name);
   },
-
   /**
    * Add listener(s) to store changes. Reactors are automatically subscribed to store changes.
    * @param {function} function or array of functions to be called when event is dispatched due to store updates
@@ -180,7 +179,7 @@ var store = {
    */
   getUnwatchedKeys: function getUnwatchedKeys() {
     var arr1 = Object.keys(store._store),
-        arr2 = Object.keys(store._keys_connected_to_store_updates);
+        arr2 = Object.keys(store._key_to_watcher_subscriptions);
     return arr1.filter(function (i) {
       return arr2.indexOf(i) === -1;
     });
@@ -208,44 +207,76 @@ var store = {
     }
 
     var oldval = store._store[key];
-    check_type_match(oldval, value, key);
-    if (value_changed(oldval, value)) {
-      // TODO add middleware calls
-      store._enqueue_change(key, oldval, value);
+    checkTypeMatch(key, oldval, value);
+    if (valueHasChanged(oldval, value)) {
+      if (store.options.debug && store.options.keys_to_not_log_changes_in_console.indexOf(key) === -1) {
+        _middleware.middleware.logChanges(key, oldval, value);
+      }
+      store._runUserMiddleware(key, oldval, value);
+      store._store[key] = value;
+      store._publishChangeToSubscribers(key, oldval, value);
+    }
+  },
+  _user_middleware_functions: [],
+  /**
+   * use a middleware function
+   * function signature of middleware is function(key, oldval, newval).
+   * If middleware functions returns true, next middleware function will run.
+   */
+  use: function use(new_middlware_function) {
+    store._user_middleware_functions.push(new_middlware_function);
+  },
+  _runUserMiddleware: function _runUserMiddleware(key, oldval, newval) {
+    var _iteratorNormalCompletion3 = true;
+    var _didIteratorError3 = false;
+    var _iteratorError3 = undefined;
+
+    try {
+      for (var _iterator3 = store._user_middleware_functions[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+        var middleware_function = _step3.value;
+
+        var keep_going = middleware_function(key, oldval, newval);
+        if (!keep_going) {
+          break;
+        }
+      }
+    } catch (err) {
+      _didIteratorError3 = true;
+      _iteratorError3 = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion3 && _iterator3.return) {
+          _iterator3.return();
+        }
+      } finally {
+        if (_didIteratorError3) {
+          throw _iteratorError3;
+        }
+      }
     }
   },
   /**
-   * enqueue a change to the store. Event will be emitted based on
-   * timeout rules.
+   * Emit event to subscribers based on timeout rules
    *
    * @param key     key to change
    * @param oldval  original value (for logging purposes)
    * @param value   new value to assign
    */
-  _enqueue_change: function _enqueue_change(key, oldval, value) {
-    if (store.options.debug) {
-      // this is only meaningful when the store data is immutable
-      // and updates aren't just references to the existing object
-      if (store.options.keys_to_not_log_changes_in_console.indexOf(key) === -1) {
-        console.log(key, oldval, ' -> ', value);
-      }
-    }
-
-    store._store[key] = value;
-
+  _publishChangeToSubscribers: function _publishChangeToSubscribers(key, oldval, value) {
     if (store._changed_keys.indexOf(key) === -1) {
       store._changed_keys.push(key);
     }
 
     // suppress active timeout (if any)
     if (store._debounce_timeout) {
-      store._clear_debounce_timeout();
+      store._clearDebounceTimeout();
     }
 
-    // delay event emission and set new timeout id
     if (store.options.debounce_ms) {
+      // delay event emission and set new timeout id
       store._debounce_timeout = setTimeout(store._publish, store.options.debounce_ms);
     } else {
+      // publish immediately
       store._publish();
     }
   },
@@ -279,7 +310,7 @@ var store = {
     var ref = store._store[key];
 
     if (store.options.immutable) {
-      return copy_by_value(ref);
+      return copyByValue(ref);
     } else {
       // return the reference
       return ref;
@@ -299,7 +330,7 @@ var store = {
     // make sure _changed_keys is reset before executing callbacks
     // (if callbacks modify state, the list of keys the callback changed would be wiped out)
     store._changed_keys = [];
-    store._clear_debounce_timeout();
+    store._clearDebounceTimeout();
     store._callback_objs.forEach(function (c) {
       return c.callback(changed_keys);
     });
@@ -321,7 +352,7 @@ var store = {
   /**
    * Clear the debounce timeout
    */
-  _clear_debounce_timeout: function _clear_debounce_timeout() {
+  _clearDebounceTimeout: function _clearDebounceTimeout() {
     clearTimeout(store._debounce_timeout);
     store._debounce_timeout = null;
   },
@@ -336,16 +367,27 @@ var store = {
    * Set to zero when event is dispatched.
    */
   _store_created: false,
-  _keys_connected_to_store_updates: {}
+  _key_to_watcher_subscriptions: {}
 
   /****** helper functions ********/
-};function intersection(arr1, arr2) {
+};function checkTypeMatch(key, a, b) {
+  if (a !== undefined && b !== undefined && a !== null && b !== null) {
+    var old_type = typeof a === 'undefined' ? 'undefined' : _typeof(a),
+        new_type = typeof b === 'undefined' ? 'undefined' : _typeof(b);
+    if (old_type !== new_type) {
+      console.error('attempted to change ', key, ' from ', a, ' (', old_type, ') to ', b, ' (', new_type, ')');
+      throw 'type error';
+    }
+  }
+}
+
+function intersection(arr1, arr2) {
   return arr1.filter(function (i) {
     return arr2.indexOf(i) !== -1;
   });
 }
 
-function copy_by_value(ref) {
+function copyByValue(ref) {
   if (Array.isArray(ref)) {
     return ref.slice();
   } else if (is_object(ref)) {
@@ -359,18 +401,7 @@ function is_object(ref) {
   return ref instanceof Object && ref.constructor === Object;
 }
 
-function check_type_match(a, b, key) {
-  if (a !== undefined && b !== undefined && a !== null && b !== null) {
-    var old_type = typeof a === 'undefined' ? 'undefined' : _typeof(a),
-        new_type = typeof b === 'undefined' ? 'undefined' : _typeof(b);
-    if (old_type !== new_type) {
-      console.error('attempted to change ', key, ' from ', a, ' (', old_type, ') to ', b, ' (', new_type, ')');
-      throw 'type error';
-    }
-  }
-}
-
-function value_changed(a, b) {
+function valueHasChanged(a, b) {
   if ((is_object(a) || Array.isArray(a)) && !store.options.immutable) {
     // since objects can be updated by reference, we don't
     // know if the value changed or not since the reference
@@ -378,13 +409,13 @@ function value_changed(a, b) {
     // objects always change
     return true;
   } else {
-    return !shallow_equal(a, b);
+    return !shallowEqual(a, b);
   }
 }
 
 // adapted from react-redux shallowEqual.js
 // https://github.com/reactjs/react-redux/blob/master/src/utils/shallowEqual.js
-function is_same_ref(x, y) {
+function isSameRef(x, y) {
   if (x === y) {
     return x !== 0 || y !== 0 || 1 / x === 1 / y;
   } else {
@@ -392,8 +423,8 @@ function is_same_ref(x, y) {
   }
 }
 
-function shallow_equal(objA, objB) {
-  if (is_same_ref(objA, objB)) {
+function shallowEqual(objA, objB) {
+  if (isSameRef(objA, objB)) {
     return true;
   }
 
@@ -408,31 +439,31 @@ function shallow_equal(objA, objB) {
     return false;
   }
 
-  var _iteratorNormalCompletion3 = true;
-  var _didIteratorError3 = false;
-  var _iteratorError3 = undefined;
+  var _iteratorNormalCompletion4 = true;
+  var _didIteratorError4 = false;
+  var _iteratorError4 = undefined;
 
   try {
-    for (var _iterator3 = keysA[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-      var k = _step3.value;
+    for (var _iterator4 = keysA[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+      var k = _step4.value;
 
       if (!objB.hasOwnProperty(k)) {
         return false;
-      } else if (!is_same_ref(objA[k], objB[k])) {
+      } else if (!isSameRef(objA[k], objB[k])) {
         return false;
       }
     }
   } catch (err) {
-    _didIteratorError3 = true;
-    _iteratorError3 = err;
+    _didIteratorError4 = true;
+    _iteratorError4 = err;
   } finally {
     try {
-      if (!_iteratorNormalCompletion3 && _iterator3.return) {
-        _iterator3.return();
+      if (!_iteratorNormalCompletion4 && _iterator4.return) {
+        _iterator4.return();
       }
     } finally {
-      if (_didIteratorError3) {
-        throw _iteratorError3;
+      if (_didIteratorError4) {
+        throw _iteratorError4;
       }
     }
   }
@@ -441,5 +472,6 @@ function shallow_equal(objA, objB) {
 }
 
 module.exports = {
-  store: store
+  store: store,
+  middleware: _middleware.middleware
 };

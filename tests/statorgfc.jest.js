@@ -1,11 +1,13 @@
-import {store} from '../statorgfc.js';
+import {store} from '../src/statorgfc.js';
 
 /* eslint-env jest */
 
 afterEach(() => {
   store._store_created = false
   store._store = {}
-});
+  store._key_to_watcher_subscriptions = {}
+  store._callback_objs = []
+})
 
 test('cannot initialize twice', ()=>{
     store.initialize({})
@@ -28,7 +30,7 @@ test('immutability', ()=>{
 test('cannot subscribe to invalid key', ()=>{
   store.initialize({key: 1})
   expect(() => {
-    store.subscribe_to_keys(['key1'], (keys)=>{})
+    store.subscribeToKeys(['key1'], (keys)=>{})
   }).toThrow('Store does not have key key1')
 })
 
@@ -52,4 +54,31 @@ test('subscribe and unsubscribe', ()=>{
     store.set('count', store.get('count') + 1)
     expect(store.get('count')).toBe(2)  // it did actually increment
     expect(v).toBe(false)  // but we weren't notified
+})
+
+test('middleware is called', ()=>{
+    store.initialize({a: 0, b: 0})
+
+    store.use(function(key, oldval, newval){
+      if(key === 'b'){
+        throw 'using middleware'
+      }
+    })
+
+    store.set({a: 1})  // nothing thrown
+
+    expect(()=>{
+      store.set({b: 1})
+    }).toThrow('using middleware')
+})
+
+test('subscriber lists', ()=>{
+  store.initialize({a: 0, b: 0})
+
+  expect(store.getUnwatchedKeys()).toEqual(['a', 'b'])
+  expect(store.getKeySubscribers()).toEqual({})
+
+  let unsubscribe = store.subscribeToKeys(['a'], function some_function(){})
+  expect(store.getUnwatchedKeys()).toEqual(['b'])
+  expect(store.getKeySubscribers()).toEqual({'a': ['some_function']})
 })

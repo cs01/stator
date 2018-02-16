@@ -31,7 +31,7 @@ import {store} from 'statorgfc'
 store.initialize({count: 0})
 
 store.get('count')  // 0
-store.set('count': store.get('count') + 1) // changed value to 1
+store.set({count: store.get('count') + 1}) // changed value to 1
 store.get('count') // 1
 ```
 
@@ -42,8 +42,8 @@ import {store} from 'statorgfc'
 store.initialize({count: 0})
 
 store.subscribe( () => console.log(store.get()) )  // call anytime something changes, and log entire store
-store.set('count', store.get('count') + 1)  // prints {count: 1}
-store.set('count', store.get('count'))  // no callbacks triggered, because the value didn't actually change
+store.set({count: store.get('count') + 1})  // prints {count: 1}
+store.set({count: store.get('count')})  // no callbacks triggered, because the value didn't actually change
 ```
 
 
@@ -73,8 +73,8 @@ class SheepWatcher extends React.Component {
 }
 
 // somewhere else in a component far, far away...
-store.set('numSheep': store.get('numSheep') + 1)  // triggers a call to setState in sheepWatcher, which updates that component
-store.set('numChickens', 100)  // doesn't trigger a call to setState in sheepWatcher
+store.set({numSheep: store.get('numSheep') + 1})  // triggers a call to setState in sheepWatcher, which updates that component
+store.set({numChickens: 100})  // doesn't trigger a call to setState in sheepWatcher
 // because sheepWatcher isn't connected to the numChickens key
 ```
 

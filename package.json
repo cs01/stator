@@ -2,11 +2,11 @@
   "name": "statorgfc",
   "version": "0.1.5",
   "description": "a JavaScript library for state management of JavaScript apps, with built-in support for React Components.",
-  "main": "statorgfc.js",
+  "main": "build/statorgfc.js",
   "directories": {},
   "scripts": {
     "test": "jest --no-cache",
-    "build": "prettier src/** --write && babel src -d ."
+    "build": "prettier src/** --write && babel src -d build"
   },
   "babel": {
     "presets": [
