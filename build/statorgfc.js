@@ -51,6 +51,25 @@ var store = {
 
     component.state = component.state || {}; // initialize if not set
 
+    // call this function whenever the store changes
+    function _callback(changed_keys) {
+      if (intersection(keys_to_watch_for_changes, changed_keys).length) {
+        // only update the state if a key we care about has changed
+        var state_update_obj = {};
+        keys_to_watch_for_changes.forEach(function (k) {
+          return state_update_obj[k] = store._store[k];
+        });
+        this.setState(state_update_obj);
+
+        // if some other custom callback is required by the component
+        // call that function as well
+        if (additonal_callback) {
+          additonal_callback(changed_keys);
+        }
+      }
+    }
+    var callback_bound_to_component = _callback.bind(component);
+
     // add keys that map to the store's keys
     var _iteratorNormalCompletion = true;
     var _didIteratorError = false;
@@ -67,10 +86,9 @@ var store = {
           console.warn('Overwriting existing state key ' + k);
         }
         component.state[k] = store._store[k];
-        store._addSubscriberToKey(k, component.constructor.name);
-      }
 
-      // call this function whenever the store changes
+        store._recordKeySubscriber(k, component.constructor.name);
+      }
     } catch (err) {
       _didIteratorError = true;
       _iteratorError = err;
@@ -86,23 +104,6 @@ var store = {
       }
     }
 
-    function _store_change_callback(changed_keys) {
-      if (intersection(keys_to_watch_for_changes, changed_keys).length) {
-        // only update the state if a key we care about has changed
-        var state_update_obj = {};
-        keys_to_watch_for_changes.forEach(function (k) {
-          return state_update_obj[k] = store._store[k];
-        });
-        this.setState(state_update_obj);
-
-        // if some other custom callback is required by the component
-        // call that function as well
-        if (additonal_callback) {
-          additonal_callback(changed_keys);
-        }
-      }
-    }
-    var callback_bound_to_component = _store_change_callback.bind(component);
     return store.subscribe(callback_bound_to_component);
   },
   /**
@@ -122,7 +123,7 @@ var store = {
         if (!store._store.hasOwnProperty(k)) {
           throw 'Store does not have key ' + k;
         }
-        store._addSubscriberToKey(k, callback.name);
+        store._recordKeySubscriber(k, callback.name);
       }
 
       // call this function whenever the store changes
@@ -151,27 +152,48 @@ var store = {
   getKeySubscribers: function getKeySubscribers() {
     return copyByValue(store._key_to_watcher_subscriptions);
   },
-  _addSubscriberToKey: function _addSubscriberToKey(key, watcher_name) {
+  _recordKeySubscriber: function _recordKeySubscriber(key, subscriber_function_name) {
     if (!store._key_to_watcher_subscriptions.hasOwnProperty(key)) {
       store._key_to_watcher_subscriptions[key] = [];
     }
-    store._key_to_watcher_subscriptions[key].push(watcher_name);
+    store._key_to_watcher_subscriptions[key].push({
+      id: store._getCurrentCallbackId(),
+      name: subscriber_function_name
+    });
+  },
+  _removeKeySubscriber: function _removeKeySubscriber(id) {
+    var subs = store._key_to_watcher_subscriptions;
+    for (var k in subs) {
+      subs[k] = subs[k].filter(function (obj) {
+        obj.id === id;
+      });
+
+      if (subs[k].length === 0) {
+        delete subs[k];
+      }
+    }
   },
   /**
    * Add listener(s) to store changes. Reactors are automatically subscribed to store changes.
    * @param {function} function or array of functions to be called when event is dispatched due to store updates
    */
   subscribe: function subscribe(callback) {
-    var id = store._cur_callback_id;
-    store._cur_callback_id++;
-
+    var id = store._getCurrentCallbackId();
+    store._incrementCurFunctionId();
     function unsubscribe() {
       store._callback_objs = store._callback_objs.filter(function (c) {
         return c.id !== id;
       });
+      store._removeKeySubscriber(id);
     }
     store._callback_objs.push({ id: id, callback: callback });
     return unsubscribe;
+  },
+  _getCurrentCallbackId: function _getCurrentCallbackId() {
+    return store._cur_callback_id;
+  },
+  _incrementCurFunctionId: function _incrementCurFunctionId() {
+    store._cur_callback_id++;
   },
   /**
    * return an array of keys that do not trigger any callbacks when changed, and therefore
@@ -212,48 +234,54 @@ var store = {
       if (store.options.debug && store.options.keys_to_not_log_changes_in_console.indexOf(key) === -1) {
         _middleware.middleware.logChanges(key, oldval, value);
       }
-      store._runUserMiddleware(key, oldval, value);
-      store._store[key] = value;
-      store._publishChangeToSubscribers(key, oldval, value);
+      var update_store = store._runUserMiddleware(key, oldval, value);
+      if (update_store) {
+        store._store[key] = value;
+        store._publishChangeToSubscribers(key, oldval, value);
+      }
     }
   },
   _user_middleware_functions: [],
   /**
    * use a middleware function
    * function signature of middleware is function(key, oldval, newval).
-   * If middleware functions returns true, next middleware function will run.
+   * If middleware functions returns true, next middleware function will run
+   * otherwise, the middleware chain will stop and the store will NOT be updated.
    */
   use: function use(new_middlware_function) {
     store._user_middleware_functions.push(new_middlware_function);
   },
   _runUserMiddleware: function _runUserMiddleware(key, oldval, newval) {
-    var _iteratorNormalCompletion3 = true;
-    var _didIteratorError3 = false;
-    var _iteratorError3 = undefined;
+    if (store._user_middleware_functions.length) {
+      var _iteratorNormalCompletion3 = true;
+      var _didIteratorError3 = false;
+      var _iteratorError3 = undefined;
 
-    try {
-      for (var _iterator3 = store._user_middleware_functions[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-        var middleware_function = _step3.value;
-
-        var keep_going = middleware_function(key, oldval, newval);
-        if (!keep_going) {
-          break;
-        }
-      }
-    } catch (err) {
-      _didIteratorError3 = true;
-      _iteratorError3 = err;
-    } finally {
       try {
-        if (!_iteratorNormalCompletion3 && _iterator3.return) {
-          _iterator3.return();
+        for (var _iterator3 = store._user_middleware_functions[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+          var middleware_function = _step3.value;
+
+          var keep_going = middleware_function(key, oldval, newval);
+          if (!keep_going) {
+            return false;
+          }
         }
+      } catch (err) {
+        _didIteratorError3 = true;
+        _iteratorError3 = err;
       } finally {
-        if (_didIteratorError3) {
-          throw _iteratorError3;
+        try {
+          if (!_iteratorNormalCompletion3 && _iterator3.return) {
+            _iterator3.return();
+          }
+        } finally {
+          if (_didIteratorError3) {
+            throw _iteratorError3;
+          }
         }
       }
     }
+    return true;
   },
   /**
    * Emit event to subscribers based on timeout rules
@@ -368,9 +396,9 @@ var store = {
    */
   _store_created: false,
   _key_to_watcher_subscriptions: {}
+};
 
-  /****** helper functions ********/
-};function checkTypeMatch(key, a, b) {
+function checkTypeMatch(key, a, b) {
   if (a !== undefined && b !== undefined && a !== null && b !== null) {
     var old_type = typeof a === 'undefined' ? 'undefined' : _typeof(a),
         new_type = typeof b === 'undefined' ? 'undefined' : _typeof(b);

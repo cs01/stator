@@ -1,6 +1,6 @@
 {
   "name": "statorgfc",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "a JavaScript library for state management of JavaScript apps, with built-in support for React Components.",
   "main": "build/statorgfc.js",
   "directories": {},

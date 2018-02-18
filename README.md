@@ -1,8 +1,8 @@
-# Statorgfc &middot; [![version](https://img.shields.io/badge/release-v0.2.0-blue.svg)](https://github.com/cs01/stator/tree/master/releases)  [![build status](https://travis-ci.org/cs01/statorgfc.svg?branch=master)](https://travis-ci.org/cs01/statorgfc)
+# Statorgfc (wip) &middot; [![version](https://img.shields.io/badge/release-v0.1.6-blue.svg)](https://www.npmjs.com/package/statorgfc)  [![build status](https://travis-ci.org/cs01/statorgfc.svg?branch=master)](https://travis-ci.org/cs01/statorgfc)
 
 > a library for state management of JavaScript apps, with built-in support for React Components
 
-Used for state management of a JavaScript application when [any of the following](https://medium.com/@fastphrase/when-to-use-redux-f0aa70b5b1e2) are true
+Used for state management of a JavaScript application when [any of the following](https://medium.com/@fastphrase/when-to-usoe-redux-f0aa70b5b1e2) are true
 * the same piece of application state needs to be mapped to multiple container components
 * there are global components that can be accessed from anywhere
 * too many props are being passed through multiple hierarchies of components

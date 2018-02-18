@@ -7,6 +7,7 @@ afterEach(() => {
   store._store = {}
   store._key_to_watcher_subscriptions = {}
   store._callback_objs = []
+  store._cur_callback_id = 0
 })
 
 test('cannot initialize twice', ()=>{
@@ -80,5 +81,9 @@ test('subscriber lists', ()=>{
 
   let unsubscribe = store.subscribeToKeys(['a'], function some_function(){})
   expect(store.getUnwatchedKeys()).toEqual(['b'])
-  expect(store.getKeySubscribers()).toEqual({'a': ['some_function']})
+  expect(store.getKeySubscribers()).toEqual({"a": [{"id": 0, "name": "some_function"}]})
+
+  unsubscribe()
+  expect(store.getUnwatchedKeys()).toEqual(['a', 'b'])
+  expect(store.getKeySubscribers()).toEqual({})
 })

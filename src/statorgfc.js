@@ -49,20 +49,8 @@ const store = {
   ) {
     component.state = component.state || {} // initialize if not set
 
-    // add keys that map to the store's keys
-    for (let k of keys_to_watch_for_changes) {
-      if (!store._store.hasOwnProperty(k)) {
-        throw 'Store does not have key ' + k
-      }
-      if (component.state.hasOwnProperty(k)) {
-        console.warn('Overwriting existing state key ' + k)
-      }
-      component.state[k] = store._store[k]
-      store._addSubscriberToKey(k, component.constructor.name)
-    }
-
     // call this function whenever the store changes
-    function _store_change_callback(changed_keys) {
+    function _callback(changed_keys) {
       if (intersection(keys_to_watch_for_changes, changed_keys).length) {
         // only update the state if a key we care about has changed
         let state_update_obj = {}
@@ -76,7 +64,20 @@ const store = {
         }
       }
     }
-    let callback_bound_to_component = _store_change_callback.bind(component)
+    let callback_bound_to_component = _callback.bind(component)
+
+    // add keys that map to the store's keys
+    for (let k of keys_to_watch_for_changes) {
+      if (!store._store.hasOwnProperty(k)) {
+        throw 'Store does not have key ' + k
+      }
+      if (component.state.hasOwnProperty(k)) {
+        console.warn('Overwriting existing state key ' + k)
+      }
+      component.state[k] = store._store[k]
+
+      store._recordKeySubscriber(k, component.constructor.name)
+    }
     return store.subscribe(callback_bound_to_component)
   },
   /**
@@ -89,7 +90,7 @@ const store = {
       if (!store._store.hasOwnProperty(k)) {
         throw 'Store does not have key ' + k
       }
-      store._addSubscriberToKey(k, callback.name)
+      store._recordKeySubscriber(k, callback.name)
     }
 
     // call this function whenever the store changes
@@ -103,25 +104,46 @@ const store = {
   getKeySubscribers: function() {
     return copyByValue(store._key_to_watcher_subscriptions)
   },
-  _addSubscriberToKey: function(key, watcher_name) {
+  _recordKeySubscriber: function(key, subscriber_function_name) {
     if (!store._key_to_watcher_subscriptions.hasOwnProperty(key)) {
       store._key_to_watcher_subscriptions[key] = []
     }
-    store._key_to_watcher_subscriptions[key].push(watcher_name)
+    store._key_to_watcher_subscriptions[key].push({
+      id: store._getCurrentCallbackId(),
+      name: subscriber_function_name,
+    })
+  },
+  _removeKeySubscriber: function(id) {
+    let subs = store._key_to_watcher_subscriptions
+    for (let k in subs) {
+      subs[k] = subs[k].filter(obj => {
+        obj.id === id
+      })
+
+      if (subs[k].length === 0) {
+        delete subs[k]
+      }
+    }
   },
   /**
    * Add listener(s) to store changes. Reactors are automatically subscribed to store changes.
    * @param {function} function or array of functions to be called when event is dispatched due to store updates
    */
   subscribe: function(callback) {
-    let id = store._cur_callback_id
-    store._cur_callback_id++
-
+    let id = store._getCurrentCallbackId()
+    store._incrementCurFunctionId()
     function unsubscribe() {
       store._callback_objs = store._callback_objs.filter(c => c.id !== id)
+      store._removeKeySubscriber(id)
     }
     store._callback_objs.push({id: id, callback: callback})
     return unsubscribe
+  },
+  _getCurrentCallbackId: function() {
+    return store._cur_callback_id
+  },
+  _incrementCurFunctionId: function() {
+    store._cur_callback_id++
   },
   /**
    * return an array of keys that do not trigger any callbacks when changed, and therefore
@@ -163,27 +185,33 @@ const store = {
       ) {
         middleware.logChanges(key, oldval, value)
       }
-      store._runUserMiddleware(key, oldval, value)
-      store._store[key] = value
-      store._publishChangeToSubscribers(key, oldval, value)
+      let update_store = store._runUserMiddleware(key, oldval, value)
+      if (update_store) {
+        store._store[key] = value
+        store._publishChangeToSubscribers(key, oldval, value)
+      }
     }
   },
   _user_middleware_functions: [],
   /**
    * use a middleware function
    * function signature of middleware is function(key, oldval, newval).
-   * If middleware functions returns true, next middleware function will run.
+   * If middleware functions returns true, next middleware function will run
+   * otherwise, the middleware chain will stop and the store will NOT be updated.
    */
   use: function(new_middlware_function) {
     store._user_middleware_functions.push(new_middlware_function)
   },
   _runUserMiddleware: function(key, oldval, newval) {
-    for (let middleware_function of store._user_middleware_functions) {
-      let keep_going = middleware_function(key, oldval, newval)
-      if (!keep_going) {
-        break
+    if (store._user_middleware_functions.length) {
+      for (let middleware_function of store._user_middleware_functions) {
+        let keep_going = middleware_function(key, oldval, newval)
+        if (!keep_going) {
+          return false
+        }
       }
     }
+    return true
   },
   /**
    * Emit event to subscribers based on timeout rules
@@ -298,7 +326,6 @@ const store = {
   _key_to_watcher_subscriptions: {},
 }
 
-/****** helper functions ********/
 function checkTypeMatch(key, a, b) {
   if (a !== undefined && b !== undefined && a !== null && b !== null) {
     let old_type = typeof a,
