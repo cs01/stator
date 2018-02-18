@@ -8,13 +8,8 @@ const store = {
    * the store's options
    */
   options: {
-    debounce_ms: 0,
-    debug: false,
-    immutable: true,
-    // Sometimes values are extremely large and just add noise when logging.
-    // If the key name is in this array and debug is true, value changes
-    // will not be logged in the console
-    keys_to_not_log_changes_in_console: [],
+    immutable: true, // when calling store.get() returns copy if true, otherwise reference
+    debounce_ms: 0, // time to delay before notifying subscribers (callbacks) of a change
   },
   /**
    * Set the initial store. This can only be done once, and must be done before the
@@ -179,12 +174,6 @@ const store = {
     let oldval = store._store[key]
     checkTypeMatch(key, oldval, value)
     if (valueHasChanged(oldval, value)) {
-      if (
-        store.options.debug &&
-        store.options.keys_to_not_log_changes_in_console.indexOf(key) === -1
-      ) {
-        middleware.logChanges(key, oldval, value)
-      }
       let update_store = store._runUserMiddleware(key, oldval, value)
       if (update_store) {
         store._store[key] = value
@@ -266,7 +255,6 @@ const store = {
     }
 
     let ref = store._store[key]
-
     if (store.options.immutable) {
       return copyByValue(ref)
     } else {
@@ -289,14 +277,14 @@ const store = {
     // (if callbacks modify state, the list of keys the callback changed would be wiped out)
     store._changed_keys = []
     store._clearDebounceTimeout()
-    store._callback_objs.forEach(c => c.callback(changed_keys))
+    store._callback_objs.forEach(obj => obj.callback(changed_keys))
   },
   /**
    * keys that were modified in the store since the last publish
    */
   _changed_keys: [],
   /**
-   * array of functions to be called when store changes (usually Reactor.render())
+   * array of functions to be called when store changes.
    */
   _callback_objs: [],
   // unique id for each callback. Used when unsubscribing.
@@ -368,11 +356,14 @@ function is_object(ref) {
 }
 
 function valueHasChanged(a, b) {
-  if ((is_object(a) || Array.isArray(a)) && !store.options.immutable) {
+  if (store.options.immutable) {
+    return !shallowEqual(a, b)
+  }
+  if (is_object(a) || Array.isArray(a)) {
     // since objects can be updated by reference, we don't
     // know if the value changed or not since the reference
     // is still the same. Err on the side of caution assume
-    // objects always change
+    // objects always change.
     return true
   } else {
     return !shallowEqual(a, b)
@@ -389,6 +380,8 @@ function isSameRef(x, y) {
   }
 }
 
+// adapted from react-redux shallowEqual.js
+// https://github.com/reactjs/react-redux/blob/master/src/utils/shallowEqual.js
 function shallowEqual(objA, objB) {
   if (isSameRef(objA, objB)) {
     return true

@@ -11,6 +11,14 @@ var middleware = {
   logChanges: function logChanges(key, oldval, newval) {
     console.log(key, oldval, ' -> ', newval);
     return true; // return true means next middleware can be called
+  },
+  persistToLocalStorage: function persistToLocalStorage(key, oldval, newval) {
+    try {
+      localStorage.setItem(key, JSON.stringify(newval));
+    } catch (err) {
+      console.warn('could not save ' + key + ' to localstorage');
+    }
+    return true; // return true means next middleware can be called
   }
 };
 

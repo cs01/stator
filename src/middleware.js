@@ -3,11 +3,17 @@
 // is called.
 
 const middleware = {
-  // log changes to the console. This is only use really
-  // if the data is immutable and oldval and newval don't point
-  // to the same reference
+  // log all changes to the console
   logChanges: function(key, oldval, newval) {
     console.log(key, oldval, ' -> ', newval)
+    return true // return true means next middleware can be called
+  },
+  persistToLocalStorage: function(key, oldval, newval) {
+    try {
+      localStorage.setItem(key, JSON.stringify(newval))
+    } catch (err) {
+      console.warn('could not save ' + key + ' to localstorage')
+    }
     return true // return true means next middleware can be called
   },
 }

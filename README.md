@@ -62,14 +62,17 @@ store.initialize({
 
 // Create a normal component
 class SheepWatcher extends React.Component {
-    constructor(){
-        super()
-        // connect global store to the state of this component
-        store.connectComponentState(this, ['numSheep', 'numWolves'])  // this.setState will be called when 'numSheep' or 'numWolves' changes
-    }
-    render(){
-      return {this.state.numSheep > this.state.numWolves ? 'all good' : 'watch out sheep!'}
-    }
+  constructor(){
+      super()
+      // connect global store to the state of this component
+      store.connectComponentState(this, ['numSheep', 'numWolves'])  // this.setState will be called when 'numSheep' or 'numWolves' changes
+  }
+  render(){
+    return <div>
+      <h1>Sheep Watcher</h1>
+      Current sheep status: {this.state.numSheep > this.state.numWolves ? 'all good' : 'watch out sheep!'}
+    </div>
+  }
 }
 
 // somewhere else in a component far, far away...
@@ -80,7 +83,7 @@ store.set({numChickens: 100})  // doesn't trigger a call to setState in sheepWat
 
 #### See which components listen to which keys
 ```js
-let watchers = store.get_key_watchers()
+let watchers = store.getKeySubscribers()
 console.log(watchers)
 // {
 //   "numSheep": ["SheepWatcher"],
@@ -95,8 +98,10 @@ console.log(no_watchers)
 // ["numChickens"]
 ```
 
-## Users
-* [gdbgui](https://github.com/cs01/gdbgui): a C/C++ debugger written as a single page JavaScript app with many disparate components that need to update frequently and efficiently
+See [more examples](https://github.com/cs01/statorgfc/tree/master/examples/).
+
+## Real World Use Cases
+* [gdbgui](https://github.com/cs01/gdbgui): frontend to a C/C++ debugger written as a single page JavaScript app with many disparate components that need to update frequently and efficiently. It is 5749 lines of JavaScript across 41 files and dozens of components and JavaScript functions.
 
 ## License
 MIT
