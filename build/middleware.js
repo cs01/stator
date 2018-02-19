@@ -5,9 +5,7 @@
 // is called.
 
 var middleware = {
-  // log changes to the console. This is only use really
-  // if the data is immutable and oldval and newval don't point
-  // to the same reference
+  // log all changes to the console
   logChanges: function logChanges(key, oldval, newval) {
     console.log(key, oldval, ' -> ', newval);
     return true; // return true means next middleware can be called

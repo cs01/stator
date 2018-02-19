@@ -44,6 +44,9 @@ var store = {
   connectComponentState: function connectComponentState(component, keys_to_watch_for_changes) {
     var additonal_callback = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : null;
 
+    if (!Array.isArray(keys_to_watch_for_changes)) {
+      throw keys_to_watch_for_changes + ' must be an array';
+    }
     component.state = component.state || {}; // initialize if not set
 
     // call this function whenever the store changes
@@ -106,6 +109,10 @@ var store = {
    * when one of a subset of the keys has been updated
    */
   subscribeToKeys: function subscribeToKeys(keys_to_watch_for_changes, callback) {
+    if (!Array.isArray(keys_to_watch_for_changes)) {
+      throw keys_to_watch_for_changes + ' must be an array';
+    }
+
     // add keys that map to the store's keys
     var _iteratorNormalCompletion2 = true;
     var _didIteratorError2 = false;
@@ -169,8 +176,7 @@ var store = {
     }
   },
   /**
-   * Add listener(s) to store changes. Reactors are automatically subscribed to store changes.
-   * @param {function} function or array of functions to be called when event is dispatched due to store updates
+   * Add listener(s) to store changes.
    */
   subscribe: function subscribe(callback) {
     var id = store._getCurrentCallbackId();

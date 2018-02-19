@@ -29,10 +29,18 @@ test('immutability', ()=>{
 })
 
 test('cannot subscribe to invalid key', ()=>{
-  store.initialize({key: 1})
+  store.initialize({mykey: 1})
   expect(() => {
-    store.subscribeToKeys(['key1'], (keys)=>{})
-  }).toThrow('Store does not have key key1')
+    store.subscribeToKeys(['mykey1'], (keys)=>{})
+  }).toThrow('Store does not have key mykey1')
+
+  expect(() => {
+    store.subscribeToKeys('mykey', (keys)=>{})
+  }).toThrow('mykey must be an array')
+
+  expect(() => {
+    store.connectComponentState({}, 'mykey', (keys)=>{})
+  }).toThrow('mykey must be an array')
 })
 
 test('subscribe and unsubscribe', ()=>{

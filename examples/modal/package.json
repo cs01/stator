@@ -1,11 +1,11 @@
 {
-  "name": "farm",
+  "name": "modalexample",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
   "scripts": {
     "build": "prettier src/** --write && webpack -p",
-    "watch": "webpack --watch"
+    "watch": "webpack-dev-server --hot"
   },
   "babel": {
     "presets": [

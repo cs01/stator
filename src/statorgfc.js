@@ -42,6 +42,9 @@ const store = {
     keys_to_watch_for_changes,
     additonal_callback = null
   ) {
+    if (!Array.isArray(keys_to_watch_for_changes)) {
+      throw keys_to_watch_for_changes + ' must be an array'
+    }
     component.state = component.state || {} // initialize if not set
 
     // call this function whenever the store changes
@@ -80,6 +83,10 @@ const store = {
    * when one of a subset of the keys has been updated
    */
   subscribeToKeys: function(keys_to_watch_for_changes, callback) {
+    if (!Array.isArray(keys_to_watch_for_changes)) {
+      throw keys_to_watch_for_changes + ' must be an array'
+    }
+
     // add keys that map to the store's keys
     for (let k of keys_to_watch_for_changes) {
       if (!store._store.hasOwnProperty(k)) {
@@ -121,8 +128,7 @@ const store = {
     }
   },
   /**
-   * Add listener(s) to store changes. Reactors are automatically subscribed to store changes.
-   * @param {function} function or array of functions to be called when event is dispatched due to store updates
+   * Add listener(s) to store changes.
    */
   subscribe: function(callback) {
     let id = store._getCurrentCallbackId()
@@ -228,8 +234,8 @@ const store = {
     }
   },
   /**
-   * Get reference to one of the keys in the current store.
-   * @param {str} key of the store object to get a reference to
+   * Get reference or value to one of the keys in the current store.
+   * @param key of the store object to get a reference to
    * @return reference or new object (depending on `immutable` option)
    * NOTE: The store should *only* be update by calling `store.set(...)`
    *   Throws error if key does not exist in store.
