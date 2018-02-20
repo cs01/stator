@@ -1,32 +1,22 @@
 # StatorGFC &middot; [![version](https://img.shields.io/badge/release-v0.1.6-blue.svg)](https://www.npmjs.com/package/statorgfc)  [![build status](https://travis-ci.org/cs01/statorgfc.svg?branch=master)](https://travis-ci.org/cs01/statorgfc)
 
-**a library for state management of JavaScript apps, with built-in support for React Components**
-
-Used for state management of a JavaScript application when [any of the following](https://medium.com/@fastphrase/when-to-usoe-redux-f0aa70b5b1e2) are true
-* the same piece of application state needs to be mapped to multiple container components
-* there are global components that can be accessed from anywhere
-* too many props are being passed through multiple hierarchies of components
-
-If you can maintain the state of a component within the component itself **you should not use statorgfc**.
-
-## Features:
-* **Global State**: State management occurs in one location -- a variable named *store*.
-* **Intuitive, Small API**: Similar to React's, with no boilerplate necessary
-* **Typesafe changes**: Values can only be replaced with data of the same type
-* **Immutable data... or not**: You choose if you want to work with immutable data structures by setting a single boolean
-* **Efficient**: If a value isn't changed during an update to the store, listeners aren't notified
-* **Optional Middleware**: Use or write middleware to perform arbitrary validation, logging, etc. before store's updates occur
 
 ### Install
 ```
 yarn add statorgfc
 ```
 
-### Live Examples
-[https://grassfedcode.com/statorgfc/](https://grassfedcode.com/statorgfc/)
+**The simplest possible global state library for react.**
 
-### Simple Example
+![Image](https://github.com/cs01/statorgfc/raw/master/images/counter.png)
+[Try it Live](https://codesandbox.io/s/github/cs01/statorgfc/tree/master/examples/counter)
 
+StatorGFC works by adding methods around a global plain JavaScript object, and attaching callback functions to it. The callback functions automatically call `setState` on the Component(s) that need it.
+
+It was developed as part of [gdbgui](https://github.com/cs01/gdbgui) and has recently been bundled into this library. gdbgui is 5749 lines of JavaScript in 41 files that create a frontend to a C/C++ debugger. It has many disparate components that need to update frequently and efficiently from websocket and AJAX data.
+
+### Create, Read, Update
+This should look very similar to React's API.
 ```js
 import {store} from 'statorgfc'
 
@@ -37,19 +27,8 @@ store.set({count: store.get('count') + 1}) // changed value to 1
 store.get('count') // 1
 ```
 
-### Subscribe a JavaScript function to changes
-```js
-import {store} from 'statorgfc'
-
-store.initialize({count: 0})
-
-store.subscribe(()=>console.log(store.get())) // call anytime something changes, and log entire store
-store.set({count: store.get('count') + 1})  // prints {count: 1}
-store.set({count: store.get('count')})  // no callbacks triggered, because the value didn't actually change
-```
-
-
 ### Subscribe a React Component to changes
+Call `store.connectComponentState()` in your constructor. That's it!
 ```js
 import React from 'react'
 import {store} from 'statorgfc'
@@ -62,25 +41,27 @@ store.initialize({
 
 class SheepWatcher extends React.Component {
   constructor(){
-      super()
-      // connect global store to the state of this component
-      // this.setState will be called when 'numSheep' or 'numWolves' changes
-      store.connectComponentState(this, ['numSheep', 'numWolves'])  
+    super()
+    // connect global store to the state of this component
+    // this.setState will be called when 'numSheep' or 'numWolves' changes
+    store.connectComponentState(this, ['numSheep', 'numWolves'])  
   }
   render(){
-    return <div>
-      <h1>Sheep Watcher</h1>
-      Current sheep status: {this.state.numSheep > this.state.numWolves ? 'all good' : 'watch out sheep!'}
-    </div>
+    return {this.state.numSheep > this.state.numWolves ? 'all good' : 'watch out sheep!'}
   }
 }
+```
 
-// somewhere else in a component far, far away...
+```js
+// somewhere else in code far, far away...
 store.set({numWolves: 15})  // SheepWatcher has setState() called
 store.set({numSheep: store.get('numSheep') + 1})  // SheepWatcher has setState() called
 store.set({numChickens: 100})  // No call to setState() in SheepWatcher
 // because sheepWatcher isn't connected to the numChickens key
 ```
+
+That's all you need to know to get started. There are a some other helper functions and options which you can read about below.
+
 
 #### View Subscribers for each key
 ```js
@@ -99,7 +80,40 @@ console.log(no_watchers)
 // ["numChickens"]
 ```
 
+### Use Middleware
+```js
+store.use((key, oldval, newval)=>console.log(key, 'is about to change'))
+```
+Read more below.
+
+### Subscribe a JavaScript function to changes
+```js
+import {store} from 'statorgfc'
+
+store.initialize({count: 0})
+
+store.subscribe(()=>console.log('store changed!')) // call anytime something changes, and log entire store
+store.set({count: store.get('count') + 1})  // prints {count: 1}
+store.set({count: store.get('count')})  // no callbacks triggered, because the value didn't actually change
+```
+
 See [more examples](https://github.com/cs01/statorgfc/tree/master/examples/).
+
+## When to Use
+Used for state management of a JavaScript application when [any of the following](https://medium.com/@fastphrase/when-to-usoe-redux-f0aa70b5b1e2) are true
+* the same piece of application state needs to be mapped to multiple container components
+* there are global components that can be accessed from anywhere
+* too many props are being passed through multiple hierarchies of components
+
+If you can maintain the state of a component within the component itself **you should not use statorgfc**.
+
+## Features:
+* **Global State**: State management occurs in one location -- a variable named *store*.
+* **Intuitive, Small API**: Similar to React's, with no boilerplate necessary
+* **Typesafe changes**: Values can only be replaced with data of the same type
+* **Immutable data... or not**: You choose if you want to work with immutable data structures by setting a single boolean
+* **Efficient**: If a value isn't changed during an update to the store, listeners aren't notified
+* **Optional Middleware**: Use or write middleware to perform arbitrary validation, logging, etc. before store's updates occur
 
 
 ## Steps for Use
@@ -114,11 +128,6 @@ There are some constraints built into StatorGFC to ensure better usability.
 1. Values must retain the same type during updates
 1. The store can only be updated with calls to `store.set()`.
 1. The store can only be read with calls to `store.get()`. This returns a copy of the value, so when you update that copy, it does not affect the underlying store until `store.set()` is called.
-
-
-## Real World Use Cases
-### [gdbgui](https://github.com/cs01/gdbgui)
-Frontend to a C/C++ debugger written as a single page JavaScript app with many disparate components that need to update frequently and efficiently. It is 5749 lines of JavaScript across 41 files and dozens of components and JavaScript functions.
 
 
 ## API
