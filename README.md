@@ -1,4 +1,4 @@
-# StatorGFC &middot; [![version](https://img.shields.io/badge/release-v0.1.6-blue.svg)](https://www.npmjs.com/package/statorgfc)  [![build status](https://travis-ci.org/cs01/statorgfc.svg?branch=master)](https://travis-ci.org/cs01/statorgfc)
+# Stator &middot; [![version](https://img.shields.io/badge/release-v0.1.6-blue.svg)](https://www.npmjs.com/package/statorgfc)  [![build status](https://travis-ci.org/cs01/statorgfc.svg?branch=master)](https://travis-ci.org/cs01/statorgfc)
 
 
 ### Install
@@ -11,7 +11,7 @@ yarn add statorgfc
 ![Image](https://github.com/cs01/statorgfc/raw/master/images/counter.png)
 [Try it Live](https://codesandbox.io/s/github/cs01/statorgfc/tree/master/examples/counter)
 
-StatorGFC works by adding methods around a global plain JavaScript object, and attaching callback functions to it. The callback functions automatically call `setState` on the Component(s) that need it.
+Stator works by adding methods around a global plain JavaScript object, and attaching callback functions to it. The callback functions automatically call `setState` on the Component(s) that need it.
 
 It was developed as part of [gdbgui](https://github.com/cs01/gdbgui) and has recently been bundled into this library. gdbgui is 5749 lines of JavaScript in 41 files that create a frontend to a C/C++ debugger. It has many disparate components that need to update frequently and efficiently from websocket and AJAX data.
 
@@ -84,7 +84,7 @@ console.log(no_watchers)
 ```js
 store.use((key, oldval, newval)=>console.log(key, 'is about to change'))
 ```
-Read more below.
+Read more on middleware below and in the API documentation.
 
 ### Subscribe a JavaScript function to changes
 ```js
@@ -123,7 +123,7 @@ If you can maintain the state of a component within the component itself **you s
 4. Read the store with `store.get('key')`
 5. Repeat step 3 and 4, and Components will automatically and efficiently re-render
 
-There are some constraints built into StatorGFC to ensure better usability.
+There are some constraints built into Stator to ensure better usability.
 1. Keys cannot be added or removed after initialization
 1. Values must retain the same type during updates
 1. The store can only be updated with calls to `store.set()`.
@@ -212,7 +212,7 @@ let unsubscribe = store.subscribe(function(keys_changed){
 )
 ```
 ### use
-Use a middleware function. If middleware functions returns true, the next middleware function will run until there are none left. At that point the store is updated and callbacks are dispatched. Otherwise, the middleware chain will stop, the store will not be updated, and callbacks will not be dispatched. StatorGFC ships with some middleware, but any arbitrary function can be used.
+Use a middleware function. If middleware functions returns true, the next middleware function will run until there are none left. At that point the store is updated and callbacks are dispatched. Otherwise, the middleware chain will stop, the store will not be updated, and callbacks will not be dispatched. Stator ships with some middleware, but any arbitrary function can be used.
 
 Note all middleware functions are called with the same arguments and must conform to this function signature.
 ```js
@@ -261,7 +261,7 @@ store.initialize({key: 0}, {immutable: false, debounce_ms: 10})
 They should be set before using the store and never updated after that.
 
 ## Built in Middleware
-StatorGFC comes with built in middleware. See [src/middleware.js](https://github.com/cs01/statorgfc/blob/master/src/middleware.js) for the full list of middleware functions.
+Stator comes with built in middleware. See [src/middleware.js](https://github.com/cs01/statorgfc/blob/master/src/middleware.js) for the full list of middleware functions.
 
 You can use the built-in middleware like this:
 ```js
