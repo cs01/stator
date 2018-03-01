@@ -1,4 +1,4 @@
-# Stator &middot; [![version](https://img.shields.io/badge/release-v0.1.6-blue.svg)](https://www.npmjs.com/package/statorgfc)  [![build status](https://travis-ci.org/cs01/statorgfc.svg?branch=master)](https://travis-ci.org/cs01/statorgfc)
+# Stator &middot; [![version](https://img.shields.io/badge/release-v0.1.6-blue.svg)](https://www.npmjs.com/package/statorgfc)  [![build status](https://travis-ci.org/cs01/stator.svg?branch=master)](https://travis-ci.org/cs01/statorgfc)
 
 
 ### Install
@@ -6,7 +6,7 @@
 yarn add statorgfc
 ```
 
-**The simplest possible global state library for react.**
+**simple, plain JavaScript state management with built-in support for React.**
 
 ![Image](https://github.com/cs01/statorgfc/raw/master/images/counter.png)
 [Try it Live](https://codesandbox.io/s/github/cs01/statorgfc/tree/master/examples/counter)
