@@ -11,7 +11,7 @@ yarn add statorgfc
 ![Image](https://github.com/cs01/statorgfc/raw/master/images/counter.png)
 [Try it Live](https://codesandbox.io/s/github/cs01/statorgfc/tree/master/examples/counter)
 
-Stator works by adding methods around a global plain JavaScript object, and attaching callback functions to it. The callback functions automatically call `setState` on the Component(s) that need it.
+Stator works by adding methods around a global plain JavaScript object, and attaching callback functions to it. The callback functions automatically call `setState` on the Component(s) that need it. [Read more](https://medium.com/@grassfedcode/state-management-tools-for-a-react-powered-frontend-to-gdb-686db2d122a5).
 
 It was developed as part of [gdbgui](https://github.com/cs01/gdbgui) and has recently been bundled into this library. gdbgui is 5749 lines of JavaScript in 41 files that create a frontend to a C/C++ debugger. It has many disparate components that need to update frequently and efficiently from websocket and AJAX data.
 
