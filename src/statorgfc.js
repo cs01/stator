@@ -10,6 +10,7 @@ const store = {
   options: {
     immutable: true, // when calling store.get() returns copy if true, otherwise reference
     debounce_ms: 0, // time to delay before notifying subscribers (callbacks) of a change
+    useDeepEqual: false, // use deep equal rather than shallow for checking if value has changed
   },
   /**
    * Set the initial store. This can only be done once, and must be done before the
@@ -372,7 +373,11 @@ function valueHasChanged(a, b) {
     // objects always change.
     return true
   } else {
-    return !shallowEqual(a, b)
+    if (store.options.useDeepEqual) {
+      return !deepEqual(a, b)
+    } else {
+      return !shallowEqual(a, b)
+    }
   }
 }
 
@@ -418,6 +423,30 @@ function shallowEqual(objA, objB) {
   }
 
   return true
+}
+
+function deepEqual(x, y) {
+  if (x === y) {
+    return true;
+  }
+  else if ((typeof x == "object" && x != null) && (typeof y == "object" && y != null)) {
+    if (Object.keys(x).length != Object.keys(y).length)
+      return false;
+
+    for (var prop in x) {
+      if (y.hasOwnProperty(prop))
+      {  
+        if (! deepEqual(x[prop], y[prop]))
+          return false;
+      }
+      else
+        return false;
+    }
+
+    return true;
+  }
+  else 
+    return false;
 }
 
 module.exports = {
