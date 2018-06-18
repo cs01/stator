@@ -248,6 +248,8 @@ options: {
   immutable: true,
   // time to delay before notifying subscribers (callbacks) of a change
   debounce_ms: 0,
+  // use deep equal rather than shallow for checking if value has changed
+  useDeepEqual: false,
 },
 ```
 
@@ -255,6 +257,7 @@ They can be set manually or during initialization:
 ```js
 store.options.immutable = false
 store.options.debounce_ms = 10
+store.options.useDeepEqual = true
 // or you can do this
 store.initialize({key: 0}, {immutable: false, debounce_ms: 10})
 ```
